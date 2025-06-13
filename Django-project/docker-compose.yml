@@ -1,0 +1,62 @@
+services:
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - static_volume:/app/static
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - django-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: >
+      sh -c "python manage.py wait_for_db &&
+             python manage.py migrate &&
+             python manage.py collectstatic --noinput &&
+             gunicorn api_with_restrictions.wsgi:application --bind 0.0.0.0:8000"
+    volumes:
+      - static_volume:/app/static
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/postgres
+      SECRET_KEY: your-secret-key-here
+      DEBUG: "False"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - django-network
+
+  db:
+    image: postgres:13-alpine
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - django-network
+
+volumes:
+  postgres_data:
+  static_volume:
+
+networks:
+  django-network:
