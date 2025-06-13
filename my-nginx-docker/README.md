@@ -25,17 +25,17 @@
   $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
  sudo apt-get update   
-``
+ ``
 
 ##  Получение файлов проекта
 
-```
+``
  git clone https://github.com/(....)
  cd (....)
 ``
 
 ## Запуск Docker-билда
 
-```
+``
  docker-compose up -d --build
-```
+``
