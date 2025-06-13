@@ -3,14 +3,14 @@
 ## Предварительно 
   
 - Git (опционально, для клонирования репозитория)
-``bash
+``
  sudo apt update
  sudo apt install git
 ``   
 
 - Установленный Docker (провереное решение)
 
-``bash
+``
  sudo apt-get install ca-certificates curl
  sudo install -m 0755 -d /etc/apt/keyrings
  sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
@@ -19,7 +19,7 @@
 
 ### Add the repository to Apt sources:
 
-``bash
+``
  echo \
 "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
   $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
@@ -29,11 +29,11 @@
 
 ##  Получение файлов проекта
 
-```bash
+```
  git clone https://github.com/(....)
  cd (....)
 ``
 ## Запуск Docker-билда
-```bash
+```
  docker-compose up -d --build
-```bash
+```
