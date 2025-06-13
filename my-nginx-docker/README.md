@@ -33,7 +33,9 @@
  git clone https://github.com/(....)
  cd (....)
 ``
+
 ## Запуск Docker-билда
+
 ```
  docker-compose up -d --build
 ```
