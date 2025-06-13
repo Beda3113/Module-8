@@ -1,0 +1,21 @@
+# Используем официальный образ Python
+FROM python:3.9-slim
+#оптимальным для Django-проектов
+
+
+# Устанавливаем переменные окружения
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+
+# Создаем и переходим в рабочую директорию
+WORKDIR /app
+
+# Устанавливаем зависимости
+COPY requirements.txt .
+RUN pip install --upgrade pip && \
+    pip install -r requirements.txt
+
+# Копируем проект
+COPY . .
+
+# Собираем статику (команда будет выполнена при запуске через entrypoint)
