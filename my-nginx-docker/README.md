@@ -37,6 +37,7 @@
 ## Запуск Docker-билда
 
 ``
- docker run -d -p 8080:80 --name my-nginx-container my-nginx
- http://localhost:8080
+  docker run -d -p 8080:80 --name my-nginx-container my-nginx
+ 
+  http://localhost:8080
 ``
