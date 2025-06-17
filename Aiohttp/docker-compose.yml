@@ -1,0 +1,28 @@
+
+
+services:
+  backend:
+    build: ./backend
+    container_name: advertisement-backend
+    ports:
+      - "8002:8000"  # внешний порт 8002 → внутренний порт 8000
+    environment:
+      - FLASK_ENV=development
+    volumes:
+      - ./backend:/app
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: advertisement-frontend
+    ports:
+      - "8001:8001"
+    environment:
+      - BACKEND_URL=http://backend:8000
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+    restart: unless-stopped
+    links:
+      - backend

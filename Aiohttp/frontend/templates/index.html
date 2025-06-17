@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Доска объявлений</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>Доска объявлений</h1>
+    <div class="tabs">
+      <button class="tab-btn active" onclick="openTab('create')">Создать</button>
+      <button class="tab-btn" onclick="openTab('search')">Поиск</button>
+      <button class="tab-btn" onclick="openTab('manage')">Управление</button>
+    </div>
+
+    <!-- Таб "Создать" -->
+    <div id="create" class="tab-content active">
+      <h2>Новое объявление</h2>
+      <form id="createForm">
+        <div class="form-group">
+          <label for="title">Заголовок*</label>
+          <input type="text" id="title" required maxlength="100" />
+        </div>
+        <div class="form-group">
+          <label for="description">Описание</label>
+          <textarea id="description" maxlength="500"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="price">Цена*</label>
+          <input type="number" id="price" required min="1" />
+        </div>
+        <div class="form-group">
+          <label for="author">Автор*</label>
+          <input type="text" id="author" required maxlength="50" />
+        </div>
+        <button type="submit">Опубликовать</button>
+      </form>
+      <div id="createResult"></div>
+    </div>
+
+    <!-- Таб "Поиск" -->
+    <div id="search" class="tab-content">
+      <h2>Поиск объявлений</h2>
+      <form id="searchForm">
+        <div class="form-group">
+          <label for="searchTitle">Заголовок</label>
+          <input type="text" id="searchTitle" />
+        </div>
+        <div class="form-group">
+          <label for="searchAuthor">Автор</label>
+          <input type="text" id="searchAuthor" />
+        </div>
+        <div class="price-range">
+          <div class="form-group">
+            <label for="minPrice">Цена от</label>
+            <input type="number" id="minPrice" min="0" />
+          </div>
+          <div class="form-group">
+            <label for="maxPrice">Цена до</label>
+            <input type="number" id="maxPrice" min="0" />
+          </div>
+        </div>
+        <button type="submit">Искать</button>
+      </form>
+      <div id="searchResults"></div>
+    </div>
+
+    <!-- Таб "Управление" -->
+    <div id="manage" class="tab-content">
+      <h2>Управление объявлениями</h2>
+      <div class="form-group">
+        <label for="adId">ID объявления</label>
+        <input type="number" id="adId" min="1" />
+      </div>
+      <div class="button-group">
+        <button onclick="getAdvertisement()">Получить</button>
+        <button onclick="deleteAdvertisement()">Удалить</button>
+        <button onclick="updateAdvertisement()">Обновить</button>
+      </div>
+      <div id="adDetails" class="ad-card" style="display: none; margin-top: 20px;">
+        <h4 id="adTitle"></h4>
+        <p id="adDescription"></p>
+        <div class="ad-footer">
+          <span class="price" id="adPrice"></span>
+          <span class="author" id="adAuthor"></span>
+          <span class="date" id="adDate"></span>
+        </div>
+      </div>
+      <div id="manageResult"></div>
+    </div>
+  </div>
+
+  <script>
+    // Определяем URL API автоматически
+    const API_BASE = (() => {
+      if (window.location.origin.includes("frontend")) return "http://backend:8000";
+      if (window.location.port === "8001") return "http://localhost:8002"; // порт фронтенда → внешний порт бэкенда
+      return "http://localhost:8000"; // если запуск вне Docker
+    })();
+    const API_URL = `${API_BASE}/advertisements`;
+
+    function openTab(tabName) {
+      document.querySelectorAll(".tab-content").forEach((tab) => tab.classList.remove("active"));
+      document.querySelectorAll(".tab-btn").forEach((btn) => btn.classList.remove("active"));
+      document.getElementById(tabName).classList.add("active");
+      event.currentTarget.classList.add("active");
+    }
+
+    // Создание объявления
+    document.getElementById("createForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const ad = {
+        title: document.getElementById("title").value.trim(),
+        description: document.getElementById("description").value.trim(),
+        price: parseInt(document.getElementById("price").value),
+        author: document.getElementById("author").value.trim()
+      };
+
+      try {
+        const response = await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(ad)
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || "Не удалось создать объявление");
+        }
+
+        const result = await response.json();
+        showCreateSuccess(`Объявление #${result.id} успешно создано`);
+        document.getElementById("createForm").reset();
+      } catch (err) {
+        showCreateError(err.message);
+      }
+    });
+
+    // Поиск объявлений
+    document.getElementById("searchForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const params = new URLSearchParams();
+
+      const title = document.getElementById("searchTitle").value.trim();
+      const author = document.getElementById("searchAuthor").value.trim();
+      const minPrice = document.getElementById("minPrice").value.trim();
+      const maxPrice = document.getElementById("maxPrice").value.trim();
+
+      if (title) params.append("title", title);
+      if (author) params.append("author", author);
+      if (minPrice) params.append("price_min", minPrice);
+      if (maxPrice) params.append("price_max", maxPrice);
+
+      try {
+        const response = await fetch(`${API_URL}?${params}`);
+        if (!response.ok) throw new Error("Ошибка при поиске");
+
+        const ads = await response.json();
+        let html = "<h3>Результаты поиска</h3>";
+
+        if (ads.length === 0) {
+          html += "<p>Объявления не найдены</p>";
+        } else {
+          html += '<div class="ads-list">';
+          ads.forEach((ad) => {
+            html += `
+              <div class="ad-card">
+                <h4>${ad.title}</h4>
+                <p>${ad.description || "Нет описания"}</p>
+                <div class="ad-footer">
+                  <span class="price">${ad.price} ₽</span>
+                  <span class="author">${ad.author}</span>
+                  <span class="date">${new Date(ad.created_at).toLocaleString()}</span>
+                </div>
+              </div>`;
+          });
+          html += "</div>";
+        }
+
+        document.getElementById("searchResults").innerHTML = html;
+      } catch (err) {
+        document.getElementById("searchResults").innerHTML = `<div class="error">Ошибка: ${err.message}</div>`;
+      }
+    });
+
+    // Получить объявление по ID
+    async function getAdvertisement() {
+      const id = document.getElementById("adId").value.trim();
+      if (!id) return showManageError("Введите корректный ID объявления");
+
+      try {
+        const response = await fetch(`${API_URL}/${id}`);
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || "Объявление не найдено");
+        }
+
+        const ad = await response.json();
+        document.getElementById("adTitle").textContent = ad.title;
+        document.getElementById("adDescription").textContent = ad.description || "Нет описания";
+        document.getElementById("adPrice").textContent = `${ad.price} ₽`;
+        document.getElementById("adAuthor").textContent = ad.author;
+        document.getElementById("adDate").textContent = new Date(ad.created_at).toLocaleString();
+        document.getElementById("adDetails").style.display = "block";
+        showManageSuccess("Объявление загружено");
+      } catch (err) {
+        document.getElementById("adDetails").style.display = "none";
+        showManageError(err.message);
+      }
+    }
+
+    // Удалить объявление
+    async function deleteAdvertisement() {
+      const id = document.getElementById("adId").value.trim();
+      if (!id) return showManageError("Введите ID объявления");
+
+      if (!confirm(`Вы уверены, что хотите удалить объявление #${id}?`)) return;
+
+      try {
+        const response = await fetch(`${API_URL}/${id}`, { method: "DELETE" });
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || "Ошибка при удалении");
+        }
+
+        document.getElementById("adDetails").style.display = "none";
+        document.getElementById("adId").value = "";
+        showManageSuccess(`Объявление #${id} удалено`);
+      } catch (err) {
+        showManageError(err.message);
+      }
+    }
+
+    // Обновить объявление
+    async function updateAdvertisement() {
+      const id = document.getElementById("adId").value.trim();
+      if (!id) return showManageError("Введите ID объявления");
+
+      const updatedAd = {
+        title: prompt("Введите новый заголовок:", "")?.trim(),
+        description: prompt("Введите новое описание:", "")?.trim(),
+        price: parseFloat(prompt("Введите новую цену:", "")),
+        author: prompt("Введите нового автора:", "")?.trim()
+      };
+
+      try {
+        const response = await fetch(`${API_URL}/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updatedAd)
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || "Ошибка при обновлении");
+        }
+
+        const ad = await response.json();
+        document.getElementById("adTitle").textContent = ad.title;
+        document.getElementById("adDescription").textContent = ad.description || "Нет описания";
+        document.getElementById("adPrice").textContent = `${ad.price} ₽`;
+        document.getElementById("adAuthor").textContent = ad.author;
+        document.getElementById("adDate").textContent = new Date(ad.created_at).toLocaleString();
+        showManageSuccess("Объявление обновлено");
+      } catch (err) {
+        showManageError(err.message);
+      }
+    }
+
+    // Вспомогательные функции
+    function showCreateSuccess(msg) {
+      document.getElementById("createResult").innerHTML = `<div class="success">${msg}</div>`;
+    }
+
+    function showCreateError(msg) {
+      document.getElementById("createResult").innerHTML = `<div class="error">${msg}</div>`;
+    }
+
+    function showManageSuccess(msg) {
+      document.getElementById("manageResult").innerHTML = `<div class="success">${msg}</div>`;
+    }
+
+    function showManageError(msg) {
+      document.getElementById("manageResult").innerHTML = `<div class="error">${msg}</div>`;
+    }
+  </script>
+</body>
+</html>
